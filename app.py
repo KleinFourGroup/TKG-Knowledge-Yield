@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QPushButton, QFileDialog, QSizePolicy, QMessageBox
-# from records import Database, emptyDB
+from records import Database, emptyDB
 from utils import newHLine
 
 import os
@@ -15,12 +15,12 @@ def createTab():
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Algorithmic Nexus for Information and Knowledge Analysis")
+        self.setWindowTitle("Benefits of Employment Calendar for Knowledge Yield")
         
-        # self.db = emptyDB()
+        self.db = emptyDB()
         
-        # from file_manager import FileManager
-        # self.fileManager = FileManager(self)
+        from file_manager import FileManager
+        self.fileManager = FileManager(self)
 
 
         self.resize(1280, 720)
@@ -29,21 +29,22 @@ class MainWindow(QWidget):
         self.tab_widget = QTabWidget()
 
         # Add tabs to the QTabWidget
-        self.activeEmployeesTab = QLabel("TODO")
-        self.tab_widget.addTab(self.activeEmployeesTab, "Active Employees")
-        self.inactiveEmployeesTab = QLabel("TODO")
-        self.tab_widget.addTab(self.inactiveEmployeesTab, "Inactive Employees")
-        self.pointsTab = QLabel("TODO")
-        self.tab_widget.addTab(self.pointsTab, "Points and Absences")
-        self.ptoTab = QLabel("TODO")
-        self.tab_widget.addTab(self.ptoTab, "PTO Tracker")
-        self.holidayTab = QLabel("TODO")
-        self.tab_widget.addTab(self.holidayTab, "Holiday Tracker")
+        from main_tab import MainTab
+        self.overviewTab = MainTab(self)
+        self.tab_widget.addTab(self.overviewTab, "Overview")
+        self.actionsTab = QLabel("TODO")
+        self.tab_widget.addTab(self.actionsTab, "Upcoming Actions")
+        from employees_tab import EmployeeOverviewTab
+        self.employeesTab = EmployeeOverviewTab(self)
+        self.tab_widget.addTab(self.employeesTab, "Employees")
+        from holidays_tab import HolidayTab
+        self.holidaysTab = HolidayTab(self)
+        self.tab_widget.addTab(self.holidaysTab, "Holiday Observances")
 
         self.openButton = QPushButton("Open Database")
         self.openButton.clicked.connect(self.open)
         self.saveButton = QPushButton("Save Database")
-        # self.saveButton.setEnabled(not self.fileManager.filePath == None)
+        self.saveButton.setEnabled(not self.fileManager.filePath == None)
         self.saveButton.clicked.connect(self.save)
         self.saveAsButton = QPushButton("Save Database As")
         self.saveAsButton.clicked.connect(self.saveAs)
@@ -69,29 +70,30 @@ class MainWindow(QWidget):
         self.setLayout(layout)
     
     def setFileLabel(self):
-        # self.dbFileLabel.setText(f"File: {self.fileManager.filePath}")
-        self.dbFileLabel.setText(f"File: TODO")
+        self.dbFileLabel.setText(f"File: {self.fileManager.filePath}")
 
     def open(self):
         self.openButton.setEnabled(False)
         self.saveButton.setEnabled(False)
         self.saveAsButton.setEnabled(False)
         dbFile  = QFileDialog.getOpenFileName(self, "Open Database", os.path.expanduser("~"), "Database (*.db)")
-        # if not dbFile[0] == "":
-        #     if self.fileManager.setFile(dbFile[0]):
-        #         self.fileManager.loadFile()
-        QMessageBox.information(self, "TODO", "Feature not yet implemented!")
+        if not dbFile[0] == "":
+            if self.fileManager.setFile(dbFile[0]):
+                self.fileManager.loadFile()
         self.setFileLabel()
         self.openButton.setEnabled(True)
-        # self.saveButton.setEnabled(not self.fileManager.filePath == None)
-        self.saveButton.setEnabled(True)
+        self.saveButton.setEnabled(not self.fileManager.filePath == None)
         self.saveAsButton.setEnabled(True)
+
+        self.employeesTab.activeEmployeesTab.refreshTable()
+        self.employeesTab.inactiveEmployeesTab.refreshTable()
+        self.overviewTab.refresh()
+        self.holidaysTab.refresh()
     
     def save(self):
-        # assert(not self.fileManager.filePath == None)
-        # self.fileManager.saveFile()
-        # QMessageBox.information(self, "Success", "Save successful!")
-        QMessageBox.information(self, "TODO", "Feature not yet implemented!")
+        assert(not self.fileManager.filePath == None)
+        self.fileManager.saveFile()
+        QMessageBox.information(self, "Success", "Save successful!")
 
 
     def saveAs(self):
@@ -99,12 +101,11 @@ class MainWindow(QWidget):
         self.saveButton.setEnabled(False)
         self.saveAsButton.setEnabled(False)
         dbFile  = QFileDialog.getSaveFileName(self, "Save Database As", os.path.expanduser("~"), "Database (*.db)")
-        # if not dbFile[0] == "":
-        #     if self.fileManager.setFile(dbFile[0]):
-        #         self.fileManager.saveFile()
-        QMessageBox.information(self, "TODO", "Feature not yet implemented!")
+        if not dbFile[0] == "":
+            if self.fileManager.setFile(dbFile[0]):
+                self.fileManager.saveFile()
         self.setFileLabel()
         self.openButton.setEnabled(True)
-        # self.saveButton.setEnabled(not self.fileManager.filePath == None)
+        self.saveButton.setEnabled(not self.fileManager.filePath == None)
         self.saveButton.setEnabled(True)
         self.saveAsButton.setEnabled(True)

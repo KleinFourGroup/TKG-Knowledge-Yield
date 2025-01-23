@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QFrame
-import base64, os, sys
+from PySide6.QtCore import QDate
+import base64, os, sys, datetime
 
 def getComboBox(items: list[str], item):
     box = QComboBox()
@@ -45,11 +46,18 @@ def checkInput(raw, type, range, errors, name = "input"):
         errors.append(f"Bug: {name} is unknown range '{range}'")
     return res
 
+def stringToB64(data: str):
+    return base64.urlsafe_b64encode(data.encode("utf-8")).decode("utf-8")
+
+def stringFromB64(enc: str):
+    return base64.urlsafe_b64decode(enc.encode("utf-8")).decode("utf-8")
+
 def listToString(data, kind):
     encodings = []
     for val in data:
         assert(isinstance(val, kind))
-        enc = base64.urlsafe_b64encode(str(val).encode("utf-8")).decode("utf-8")
+        enc = stringToB64(str(val))
+        # enc = base64.urlsafe_b64encode(str(val).encode("utf-8")).decode("utf-8")
         encodings.append(enc)
     return "#".join(encodings)
 
@@ -59,7 +67,8 @@ def stringToList(string: str, kind):
         return list()
     encodings = string.split("#")
     for enc in encodings:
-        val = kind(base64.urlsafe_b64decode(enc.encode("utf-8")).decode("utf-8"))
+        val = kind(stringFromB64(enc))
+        # val = kind(base64.urlsafe_b64decode(enc.encode("utf-8")).decode("utf-8"))
         data.append(val)
     return data
 
@@ -82,3 +91,9 @@ def startfile(path):
         os.startfile(path)
     else:
         os.system(f"open {path}")
+
+def toQDate(date: datetime.date):
+    return QDate(date.year, date.month, date.day)
+
+def fromQDate(date: QDate):
+    return datetime.date(date.year(), date.month(), date.day())
