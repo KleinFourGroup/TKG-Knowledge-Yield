@@ -211,3 +211,36 @@ class PDFReport:
                 data = data[drawn:]
                 self.nextPage()
             self.pdf.save()
+    
+    def employeeActiveReport(self):
+        headers = ["ID", "Name", "Points", "Remaining PTO"]
+        data = [[
+            "{}".format(id),
+            "{} {}".format(self.db.employees[id].lastName.upper(), self.db.employees[id].firstName),
+            "{}".format(self.db.attendance[id].currentPoints(datetime.date.today())),
+            "{}".format(self.db.PTO[id].getAvailableHours(self.db.employees[id].anniversary, self.db.attendance[id], datetime.date.today()) - self.db.PTO[id].getUsedHours(datetime.date.today().year) if self.db.employees[id].fullTime else "N/A")
+        ] for id in self.db.employees if self.db.employees[id].status]
+        olen = len(data)
+
+        if len(data) == 0:
+            self.setupPage()
+            self.drawTitle(f"TKG Active Employees Report ({datetime.date.today().isoformat()})")
+            self.skipLines(2)
+
+            self.drawSection(f"Details")
+
+            self.drawTable([], ["Total Employees", f"{olen}"])
+        while len(data) > 0:
+            self.setupPage()
+            self.drawTitle(f"TKG Active Employees Report ({datetime.date.today().isoformat()})")
+            self.skipLines(2)
+
+            self.drawSection(f"Details{" -- Continued" if not len(data) == olen else ""}")
+            drawn = self.drawTable(data, headers)
+
+            if drawn == len(data):
+                self.drawTable([], ["Total Employees", f"{olen}"])
+            
+            data = data[drawn:]
+            self.nextPage()
+        self.pdf.save()

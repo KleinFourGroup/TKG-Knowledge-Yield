@@ -1,14 +1,16 @@
 import datetime
-from PySide6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QMessageBox, QCalendarWidget, QComboBox
+from PySide6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QMessageBox, QCalendarWidget, QComboBox, QFileDialog
 from PySide6.QtCore import QDate
 import random
 import math
+import os
 
 from table import DBTable
 from app import MainWindow
 from records import Employee, EmployeeReviewsDB, EmployeeTrainingDB, EmployeePointsDB, EmployeePTODB
 from error import ErrorWindow, errorMessage
-from utils import getComboBox, widgetFromList, checkInput, toQDate, fromQDate
+from utils import getComboBox, widgetFromList, checkInput, toQDate, fromQDate, startfile
+from report import PDFReport
 
 class EmployeeOverviewTab(QWidget):
     def __init__(self, mainApp: MainWindow):
@@ -52,6 +54,9 @@ class EmployeeTab(QWidget):
         toggle.clicked.connect(self.toggleSelection)
         delete = QPushButton("Delete")
         delete.clicked.connect(self.deleteSelection)
+        report = QPushButton("Report")
+        report.clicked.connect(self.reportAll)
+        report.setEnabled(self.active)
 
         barLayout = QHBoxLayout()
         barLayout.addWidget(self.selectLabel)
@@ -60,6 +65,7 @@ class EmployeeTab(QWidget):
             barLayout.addWidget(edit)
         barLayout.addWidget(toggle)
         barLayout.addWidget(delete)
+        barLayout.addWidget(report)
 
         layout = QVBoxLayout()
         layout.addWidget(self.table)
@@ -124,6 +130,13 @@ class EmployeeTab(QWidget):
                 self.mainTab.activeEmployeesTab.refreshTable()
                 self.mainTab.inactiveEmployeesTab.refreshTable()
                 QMessageBox.information(self, "Success", "Update successful!")
+    
+    def reportAll(self):
+        reportFile  = QFileDialog.getSaveFileName(self, f"Save Active Employee Report As", os.path.expanduser("~"), "Portable Document Format (*.pdf)")
+        if not reportFile[0] == "":
+            pdf = PDFReport(self.mainApp.db, reportFile[0])
+            pdf.employeeActiveReport()
+            startfile(reportFile[0])
     
     def refreshTable(self):
         self.genTableData()
