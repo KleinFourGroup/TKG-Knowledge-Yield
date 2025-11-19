@@ -5,22 +5,22 @@ import defaults
 
 class Employee:
     def __init__(self) -> None:
-        self.idNum: int = None
-        self.lastName: str = None
-        self.firstName: str = None
-        self.anniversary: datetime.date = None
+        self.idNum: int | None = None
+        self.lastName: str | None = None
+        self.firstName: str | None = None
+        self.anniversary: datetime.date | None = None
 
-        self.role: str = None
-        self.shift: int = None
+        self.role: str | None = None
+        self.shift: int | None = None
         self.fullTime: bool = True
 
-        self.addressLine1: str = None
-        self.addressLine2: str = None
-        self.addressCity: str = None
-        self.addressState: str = None
-        self.addressZip: str = None
-        self.addressTel: str = None
-        self.addressEmail: str = None
+        self.addressLine1: str | None = None
+        self.addressLine2: str | None = None
+        self.addressCity: str | None = None
+        self.addressState: str | None = None
+        self.addressZip: str | None = None
+        self.addressTel: str | None = None
+        self.addressEmail: str | None = None
 
         self.status: bool = True
     
@@ -57,6 +57,7 @@ class Employee:
         self.status = active
     
     def getTuple(self):
+        assert(not self.anniversary == None)
         return (
             self.idNum,
             self.lastName,
@@ -88,11 +89,11 @@ class Employee:
         self.setStatus(not row[13] == 0)
 
 class EmployeeReview:
-    def __init__(self, idNum: int = None, date: datetime.date = None, nextReview: datetime.date = None, details: str = "") -> None:
+    def __init__(self, idNum: int | None = None, date: datetime.date | None = None, nextReview: datetime.date | None = None, details: str = "") -> None:
         assert(idNum == None or idNum >= 0)
-        self.idNum: int = idNum
-        self.date: datetime.date = date
-        self.nextReview: datetime.date = nextReview
+        self.idNum: int | None = idNum
+        self.date: datetime.date | None = date
+        self.nextReview: datetime.date | None = nextReview
         self.details: str = details
 
     def setID(self, num: int):
@@ -115,10 +116,10 @@ class EmployeeReview:
         self.details = stringFromB64(row[3])
 
 class EmployeeTrainingDate:
-    def __init__(self, idNum: int = None, training: str = None, date: datetime.date = None, comment: str = "") -> None:
-        self.idNum: int = idNum
-        self.training: str = training
-        self.date: datetime.date = date
+    def __init__(self, idNum: int | None = None, training: str | None = None, date: datetime.date | None = None, comment: str = "") -> None:
+        self.idNum: int | None = idNum
+        self.training: str | None = training
+        self.date: datetime.date | None = date
         self.comment: str = comment
 
     def setID(self, num: int):
@@ -134,6 +135,7 @@ class EmployeeTrainingDate:
         self.date = date
     
     def getTuple(self):
+        assert(not self.date == None)
         return (
             self.idNum,
             self.training,
@@ -148,10 +150,10 @@ class EmployeeTrainingDate:
         self.comment = row[3]
 
 class EmployeePTORange:
-    def __init__(self, idNum: int = None, start: datetime.date = None, end: datetime.date | str = None, hours: float = 0) -> None:
-        self.employee: int = idNum
-        self.start: datetime.date = start
-        self.end: datetime.date = end
+    def __init__(self, idNum: int | None = None, start: datetime.date | None = None, end: datetime.date | str | None = None, hours: float = 0) -> None:
+        self.employee: int | None = idNum
+        self.start: datetime.date | None = start
+        self.end: datetime.date | str | None = end
         self.hours: float = hours
     
     def setEmployee(self, num: int):
@@ -193,10 +195,10 @@ class EmployeePTORange:
         self.setHours(row[3])
 
 class EmployeePoint:
-    def __init__(self, idNum: int = None, date: datetime.date = None, reason: str = None, value: float = 0) -> None:
-        self.idNum: int = idNum
-        self.date: datetime.date = date
-        self.reason: str = reason
+    def __init__(self, idNum: int | None = None, date: datetime.date | None = None, reason: str | None = None, value: float = 0) -> None:
+        self.idNum: int | None = idNum
+        self.date: datetime.date | None = date
+        self.reason: str | None = reason
         self.value: float = value
     
     def setEmployee(self, num: int):
@@ -229,9 +231,9 @@ class EmployeePoint:
         self.setReason(row[2], row[3])
 
 class HolidayObservance:
-    def __init__(self, holiday: str = None, date: datetime.date = None, shift: int = 1) -> None:
-        self.holiday: str = holiday
-        self.date: datetime.date = date
+    def __init__(self, holiday: str | None = None, date: datetime.date | None = None, shift: int = 1) -> None:
+        self.holiday: str | None = holiday
+        self.date: datetime.date | None = date
         self.shift: int = shift
     
     def setHoliday(self, holiday: str):
@@ -475,6 +477,8 @@ class ObservancesDB:
             return self.defaults[holiday]
     
     def setObservance(self, holiday: HolidayObservance):
+        assert(not holiday.date == None)
+        assert(not holiday.holiday == None)
         year = holiday.date.year
         if not year in self.observances:
             self.observances[year] = {}
@@ -542,6 +546,7 @@ class Database:
     
     def addEmployee(self, employee: Employee):
         assert(not employee.idNum in self.employees)
+        assert(not employee.idNum == None)
         self.employees[employee.idNum] = employee
             
     def updateEmployee(self, oldID, newID):

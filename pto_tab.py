@@ -21,8 +21,8 @@ class PTOTab(QWidget):
         self.mainApp = self.mainTab.mainApp
         self.windows = []
         
-        self.currentEmployee: Employee = None
-        self.currentEmployeePTO: EmployeePTODB = None
+        self.currentEmployee: Employee | None = None
+        self.currentEmployeePTO: EmployeePTODB | None = None
         self.currentEmployeeLabel = QLabel("Employee: N/A")
 
         self.genTableData()
@@ -95,7 +95,12 @@ class PTOTab(QWidget):
         def getPair(start: str):
             rows = [row for row in self.tableData if row[0] == start]
             assert(len(rows) == 1)
-            return (datetime.date.fromisoformat(rows[0][0]), datetime.date.fromisoformat(rows[0][1]) if isinstance(rows[0][1], datetime.date) else rows[0][1])
+            end = rows[0][1]
+            try:
+                end = datetime.date.fromisoformat(rows[0][1])
+            except:
+                pass
+            return (datetime.date.fromisoformat(rows[0][0]), end)
         self.selection = list(map(getPair, selection))
         self.selectLabel.setText(f"Selection: {",".join(map(lambda x: f"{x[0].isoformat()} -- {x[1].isoformat() if isinstance(x[1], datetime.date) else x[1]}", self.selection))}")
     
@@ -121,7 +126,7 @@ class PTOTab(QWidget):
         self.setSelection(selection)
 
         isEmpty = False
-        if not self.currentEmployeePTO == None and self.currentEmployee.fullTime:
+        if not self.currentEmployeePTO == None and not self.currentEmployee == None and self.currentEmployee.fullTime:
             today = datetime.date.today()
             self.PTOHoursLabel.setText(f"PTO hours in {datetime.date.today().year}: {self.currentEmployeePTO.getAvailableHours(self.currentEmployee.anniversary, self.mainApp.db.attendance[self.mainTab.employeeID], today)}")
             self.PTOUsedLabel.setText(f"PTO used in {datetime.date.today().year}: {self.currentEmployeePTO.getUsedHours(today.year)}")
@@ -146,6 +151,7 @@ class PTOTab(QWidget):
             self.carryButton.setEnabled(False)
     
     def openNew(self):
+        assert(not self.currentEmployeePTO == None)
         self.windows.append(PTOEditWindow(self.currentEmployeePTO.idNum, None, self.mainApp))
     
     def manageCarry(self):
@@ -163,6 +169,7 @@ class PTOTab(QWidget):
             if isinstance(PTOrange[1], str):
                 errorMessage(self.mainApp, ["Carryover cannot be edited through this interface.  Please use the \"Manage Carryover\" button."])
             else:
+                assert(not self.currentEmployeePTO == None)
                 self.windows.append(PTOEditWindow(self.currentEmployeePTO.idNum, self.currentEmployeePTO.PTO[PTOrange], self.mainApp))
     
     def deletePTO(self):
@@ -174,12 +181,13 @@ class PTOTab(QWidget):
             else:
                 confirm = QMessageBox.question(self, f"Delete {PTOrange[0].isoformat()} -- {PTOrange[1].isoformat()}?", f"Are you sure you want to delete the PTO from {PTOrange[0].isoformat()} to {PTOrange[1].isoformat()}?")
                 if confirm == QMessageBox.StandardButton.Yes:
+                    assert(not self.currentEmployeePTO == None)
                     del self.currentEmployeePTO.PTO[PTOrange]
                 QMessageBox.information(self.mainApp, "Success", f"PTO from {PTOrange[0].isoformat()} to {PTOrange[1].isoformat()} successfully deleted!")
         self.refresh()
 
     def report(self):
-        if self.currentEmployeePTO == None:
+        if self.currentEmployeePTO == None or self.currentEmployee == None:
             errorMessage(self.mainApp, ["No employee selected."])
         else:
             reportFile  = QFileDialog.getSaveFileName(self, f"Save {self.currentEmployee.idNum} PTO Report As", os.path.expanduser("~"), "Portable Document Format (*.pdf)")
@@ -218,8 +226,8 @@ class PTOCarryWindow(QWidget):
         self.toUseSlider = QSlider()
         self.toUseSlider.setOrientation(Qt.Orientation.Horizontal)
         self.toUseSlider.setMinimum(1)
-        self.toUseSlider.setMaximum(min(self.unusedHours, 20))
-        self.toUseSlider.setValue(min(self.unusedHours, 20))
+        self.toUseSlider.setMaximum(min(int(self.unusedHours), 20))
+        self.toUseSlider.setValue(min(int(self.unusedHours), 20))
         self.toUseSlider.setTickInterval(1)
 
         self.toUseLabel = QLabel(f"Hours: {self.toUseSlider.value()}")
@@ -343,7 +351,7 @@ class PTOCarryWindow(QWidget):
 
 
 class PTOEditWindow(QWidget):
-    def __init__(self, employeeID, PTORange: EmployeePTORange, mainApp: MainWindow):
+    def __init__(self, employeeID, PTORange: EmployeePTORange | None, mainApp: MainWindow):
         super().__init__()
         assert(not employeeID == None)
         self.mainApp = mainApp
@@ -359,19 +367,23 @@ class PTOEditWindow(QWidget):
         self.PTORange = PTORange
         self.isNew = PTORange == None
         if not self.isNew:
+            assert(not PTORange == None) # Redundant but the type hinter wants it
             assert((PTORange.start, PTORange.end) in self.PTODB.PTO)
             assert(PTORange == self.PTODB.PTO[(PTORange.start, PTORange.end)])
 
         self.calendarStart = QCalendarWidget()
         if not self.isNew:
+            assert(not self.PTORange == None) # Redundant but the type hinter wants it
             self.calendarStart.setSelectedDate(toQDate(self.PTORange.start))
 
         self.calendarEnd = QCalendarWidget()
         if not self.isNew:
+            assert(not self.PTORange == None) # Redundant but the type hinter wants it
             self.calendarEnd.setSelectedDate(toQDate(self.PTORange.end))
 
         self.hours = QLineEdit()
         if not self.isNew:
+            assert(not self.PTORange == None) # Redundant but the type hinter wants it
             self.hours.setText(f"{self.PTORange.hours}")
 
         self.mainLayout = [
@@ -413,7 +425,7 @@ class PTOEditWindow(QWidget):
             for dates in self.PTODB.PTO:
                 if isinstance(dates[1], datetime.date) and not (start > dates[1] or dates[0] > end):
                     # Intersection?
-                    if isNew or not dates == (self.PTORange.start, self.PTORange.end):
+                    if isNew or (not self.PTORange == None and not dates == (self.PTORange.start, self.PTORange.end)):
                         errors.append(f"Employee {self.employeeID} already has conflicting PTO from {dates[0].isoformat()} to {dates[1].isoformat()}")
         if not start.year == end.year:
             errors.append(f"Range spans multiple calendar years ({start.year} to {end.year})")
@@ -424,15 +436,16 @@ class PTOEditWindow(QWidget):
         hours = checkInput(self.hours.text(), float, "pos", errors, "hours")
 
         used = self.PTODB.getUsedHours(start.year)
-        if not isNew and self.PTORange.start.year == start.year:
+        if not isNew and not self.PTORange == None and self.PTORange.start.year == start.year:
             used -= self.PTORange.hours
-        available = self.PTODB.getAvailableHours(self.employee.anniversary, self.attendanceDB, start)
+        available = self.PTODB.getAvailableHours(self.employee.anniversary, self.attendanceDB, end) # In case bonus hours apply mid range
         if used + hours > available:
             errors.append(f"Employee {self.employeeID} is only eligible for {available} PTO hours in {start.year} (would use {used + hours})")
         
         if len(errors) == 0:
             if isNew:
                 self.PTORange = EmployeePTORange(self.employeeID, start, end, hours)
+            assert(not self.PTORange == None) # Redundant but the type hinter wants it
             if not isNew:
                 del self.PTODB.PTO[(self.PTORange.start, self.PTORange.end)]
                 self.PTORange.start = start

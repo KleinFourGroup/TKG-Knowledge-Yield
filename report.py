@@ -62,7 +62,7 @@ class PDFReport:
         self.drawText(text)
         self.setFont(*oldFont)
     
-    def drawTable(self, data: list[list[str]], headers: list[str] = None, widths: list[float] = None):
+    def drawTable(self, data: list[list[str]], headers: list[str] | None = None, widths: list[float] | None = None):
         hasHeader = not headers == None
         columns = len(widths) if not widths == None else len(headers) if hasHeader else len(data[0]) if len(data) > 0 else 1
 
@@ -112,10 +112,11 @@ class PDFReport:
         if id in self.db.employees:
             employee = self.db.employees[id]
             points = self.db.attendance[id]
+            assert(not employee.lastName == None)
             
             headers = ["Date", "Points", "Reason"]
             data = [[
-                "{}".format(entry.date.isoformat()),
+                "{}".format(entry.date.isoformat() if not entry.date == None else "ERROR"),
                 "{}".format(entry.value),
                 "{}".format(entry.reason)
 
@@ -151,11 +152,13 @@ class PDFReport:
         if id in self.db.employees:
             employee = self.db.employees[id]
             PTO = self.db.PTO[id]
+            assert(not employee.lastName == None)
+            assert(not employee.anniversary == None)
 
             headers = ["Start", "End", "Hours"]
             data = [[
-                "{}".format(PTO.PTO[entry].start.isoformat()),
-                "{}".format(PTO.PTO[entry].end.isoformat() if isinstance(PTO.PTO[entry].end, datetime.date) else PTO.PTO[entry].end),
+                "{}".format(PTO.PTO[entry].start.isoformat()), # type: ignore
+                "{}".format(PTO.PTO[entry].end.isoformat() if isinstance(PTO.PTO[entry].end, datetime.date) else PTO.PTO[entry].end), # type: ignore
                 "{}{}".format("" if isinstance(PTO.PTO[entry].end, datetime.date) else "", PTO.PTO[entry].hours)
 
             ] for entry in PTO.PTO if isinstance(PTO.PTO[entry].end, datetime.date)]
@@ -180,8 +183,7 @@ class PDFReport:
             self.skipLines(2)
 
             self.drawSection(f"PTO Overview")
-            
-            self.drawText(f"PTO hours in {datetime.date.today().year}: {PTO.getAvailableHours(employee.anniversary, self.db.attendance[id], today)}")
+            self.drawText(f"PTO hours in {datetime.date.today().year}: {PTO.getAvailableHours(employee.anniversary, self.db.attendance[id], today)} {"" if (today - employee.anniversary).days >= 180 else f"(available {(employee.anniversary + datetime.timedelta(days=180)).isoformat()})"}")
             self.drawText(f"Base PTO in {datetime.date.today().year}: {PTO.getAvailableBaseHours(employee.anniversary, today.year)}")
             self.drawText(f"PTO attendance bonus in {datetime.date.today().year}: {PTO.getQuarterHours(employee.anniversary, self.db.attendance[id], today)}")
             self.drawText(f"PTO carryover from {datetime.date.today().year - 1}: {PTO.getCarryHours(today.year)} ({status})")
@@ -216,9 +218,9 @@ class PDFReport:
         headers = ["ID", "Name", "Points", "Remaining PTO"]
         data = [[
             "{}".format(id),
-            "{} {}".format(self.db.employees[id].lastName.upper(), self.db.employees[id].firstName),
+            "{} {}".format(self.db.employees[id].lastName.upper(), self.db.employees[id].firstName), # type: ignore
             "{}".format(self.db.attendance[id].currentPoints(datetime.date.today())),
-            "{}".format(self.db.PTO[id].getAvailableHours(self.db.employees[id].anniversary, self.db.attendance[id], datetime.date.today()) - self.db.PTO[id].getUsedHours(datetime.date.today().year) if self.db.employees[id].fullTime else "N/A")
+            "{}".format(self.db.PTO[id].getAvailableHours(self.db.employees[id].anniversary, self.db.attendance[id], datetime.date.today()) - self.db.PTO[id].getUsedHours(datetime.date.today().year) if self.db.employees[id].fullTime else "N/A") # type: ignore
         ] for id in self.db.employees if self.db.employees[id].status]
         olen = len(data)
 
