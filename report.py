@@ -3,10 +3,12 @@ from math import floor
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 import datetime
 
 from records import Database
+from defaults import PTO_ELIGIBILITY
 
 class PDFReport:
     def __init__(self, db: Database, path: str, margin: float = inch) -> None:
@@ -62,6 +64,24 @@ class PDFReport:
         self.drawText(text)
         self.setFont(*oldFont)
     
+    def _wrapText(self, text: str, maxWidth: float, font: str | None = None, fontSize: int | None = None) -> list[str]:
+        font = font or self.font
+        fontSize = fontSize or self.fontSize
+        words = text.split()
+        if len(words) == 0:
+            return [""]
+        lines = []
+        currentLine = words[0]
+        for word in words[1:]:
+            testLine = currentLine + " " + word
+            if stringWidth(testLine, font, fontSize) <= maxWidth:
+                currentLine = testLine
+            else:
+                lines.append(currentLine)
+                currentLine = word
+        lines.append(currentLine)
+        return lines
+
     def drawTable(self, data: list[list[str]], headers: list[str] | None = None, widths: list[float] | None = None):
         hasHeader = not headers == None
         columns = len(widths) if not widths == None else len(headers) if hasHeader else len(data[0]) if len(data) > 0 else 1
@@ -77,35 +97,77 @@ class PDFReport:
         xVals = [startX]
         for width in widths:
             xVals.append(xVals[-1] + width)
-        
+
         padding = self.fontSize / 3
-        rowHeight = self.fontSize + 1.5 * padding
-        # includes header
-        maxRows = floor((self.lastLine - self.bottom) / rowHeight)
-        rows = min((1 if hasHeader else 0) + len(data), maxRows)
-        if rows == 0:
+        lineHeight = self.fontSize * self.lineSpace
+
+        # Phase A: Wrap all text and compute row heights
+        # Each entry in rowInfo is (wrappedCells, rowHeight, isHeader)
+        rowInfo: list[tuple[list[list[str]], float, bool]] = []
+
+        if hasHeader:
+            headerWrapped = []
+            for i in range(columns):
+                cellWidth = widths[i] - 2 * padding
+                headerWrapped.append(self._wrapText(headers[i], cellWidth, "Times-Bold", self.fontSize))
+            maxLines = max(len(lines) for lines in headerWrapped)
+            rowInfo.append((headerWrapped, maxLines * lineHeight + padding, True))
+
+        for dataRow in data:
+            wrappedCells = []
+            for i in range(columns):
+                cellWidth = widths[i] - 2 * padding
+                wrappedCells.append(self._wrapText(dataRow[i], cellWidth))
+            maxLines = max(len(lines) for lines in wrappedCells)
+            rowInfo.append((wrappedCells, maxLines * lineHeight + padding, False))
+
+        # Phase B: Paginate by accumulating variable row heights
+        availableHeight = self.lastLine - self.bottom
+        usedHeight = 0
+        rowsToDraw = 0
+        for (wrappedCells, rowHeight, isHeader) in rowInfo:
+            if usedHeight + rowHeight > availableHeight:
+                break
+            usedHeight += rowHeight
+            rowsToDraw += 1
+
+        if rowsToDraw == 0:
             return 0
-        
-        yVals = [self.lastLine - i * rowHeight for i in range(rows + 1)]
+
+        # Phase C: Build yVals and draw grid
+        yVals = [self.lastLine]
+        for i in range(rowsToDraw):
+            yVals.append(yVals[-1] - rowInfo[i][1])
 
         self.pdf.grid(xVals, yVals)
 
-        if hasHeader:
-            oldFont = (self.font, self.fontSize)
-            self.setFont("Times-Bold", self.fontSize)
-            drawY = yVals[1]
-            for i in range(columns):
-                self.pdf.drawString(xVals[i] + padding, drawY + padding, headers[i])
-            self.setFont(*oldFont)
-        
+        # Phase D: Draw wrapped text in cells
         drawn = 0
-        for row in range(2 if hasHeader else 1, len(yVals)):
-            drawY = yVals[row]
-            dataRow = data[row - (2 if hasHeader else 1)]
-            for i in range(columns):
-                self.pdf.drawString(xVals[i] + padding, drawY + padding, dataRow[i])
-            drawn += 1
-        self.lastLine = yVals[-1] - self.fontSize * self.lineSpace
+        for rowIdx in range(rowsToDraw):
+            wrappedCells, rowHeight, isHeader = rowInfo[rowIdx]
+            cellTop = yVals[rowIdx]
+
+            if isHeader:
+                oldFont = (self.font, self.fontSize)
+                self.setFont("Times-Bold", self.fontSize)
+
+                for colIdx in range(columns):
+                    lines = wrappedCells[colIdx]
+                    for lineIdx, line in enumerate(lines):
+                        textY = cellTop - padding - self.fontSize - lineIdx * lineHeight
+                        self.pdf.drawString(xVals[colIdx] + padding, textY, line)
+
+                self.setFont(*oldFont)
+            else:
+                for colIdx in range(columns):
+                    lines = wrappedCells[colIdx]
+                    for lineIdx, line in enumerate(lines):
+                        textY = cellTop - padding - self.fontSize - lineIdx * lineHeight
+                        self.pdf.drawString(xVals[colIdx] + padding, textY, line)
+
+                drawn += 1
+
+        self.lastLine = yVals[rowsToDraw] - self.fontSize * self.lineSpace
         return drawn
     
     def employeePointsReport(self, id):
@@ -154,6 +216,8 @@ class PDFReport:
             PTO = self.db.PTO[id]
             assert(not employee.lastName == None)
             assert(not employee.anniversary == None)
+            
+            today = datetime.date.today()
 
             headers = ["Start", "End", "Hours"]
             data = [[
@@ -161,11 +225,9 @@ class PDFReport:
                 "{}".format(PTO.PTO[entry].end.isoformat() if isinstance(PTO.PTO[entry].end, datetime.date) else PTO.PTO[entry].end), # type: ignore
                 "{}{}".format("" if isinstance(PTO.PTO[entry].end, datetime.date) else "", PTO.PTO[entry].hours)
 
-            ] for entry in PTO.PTO if isinstance(PTO.PTO[entry].end, datetime.date)]
+            ] for entry in PTO.PTO if isinstance(PTO.PTO[entry].end, datetime.date) and PTO.PTO[entry].end.year == today.year]
             data.sort(key=lambda row: (row[0], row[1]))
             olen = len(data)
-            
-            today = datetime.date.today()
 
             unusedType = PTO.getCarryType(datetime.date.today().year)
 
@@ -183,7 +245,7 @@ class PDFReport:
             self.skipLines(2)
 
             self.drawSection(f"PTO Overview")
-            self.drawText(f"PTO hours in {datetime.date.today().year}: {PTO.getAvailableHours(employee.anniversary, self.db.attendance[id], today)} {"" if (today - employee.anniversary).days >= 180 else f"(available {(employee.anniversary + datetime.timedelta(days=180)).isoformat()})"}")
+            self.drawText(f"PTO hours in {datetime.date.today().year}: {PTO.getAvailableHours(employee.anniversary, self.db.attendance[id], today)}{"" if (today - employee.anniversary).days >= PTO_ELIGIBILITY else f" (available {(employee.anniversary + datetime.timedelta(days=PTO_ELIGIBILITY)).isoformat()})"}")
             self.drawText(f"Base PTO in {datetime.date.today().year}: {PTO.getAvailableBaseHours(employee.anniversary, today.year)}")
             self.drawText(f"PTO attendance bonus in {datetime.date.today().year}: {PTO.getQuarterHours(employee.anniversary, self.db.attendance[id], today)}")
             self.drawText(f"PTO carryover from {datetime.date.today().year - 1}: {PTO.getCarryHours(today.year)} ({status})")

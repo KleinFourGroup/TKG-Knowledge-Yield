@@ -4,6 +4,8 @@ from utils import newHLine
 
 import os
 
+VERSION = "2.6"
+
 def createTab():
     tab = QWidget()
     label = QLabel("TODO")
@@ -15,7 +17,7 @@ def createTab():
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Benefits of Employment Calendar for Knowledge Yield")
+        self.setWindowTitle(f"Benefits of Employment Calendar for Knowledge Yield v{VERSION}")
         
         self.db = emptyDB()
         

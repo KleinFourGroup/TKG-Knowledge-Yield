@@ -38,3 +38,5 @@ HOLIDAYS: list[str] = [
     "Christmas Day",
     "New Years Eve"
 ]
+
+PTO_ELIGIBILITY = 90

@@ -9,7 +9,7 @@ from table import DBTable
 from app import MainWindow
 from main_tab import MainTab
 from records import Employee, EmployeePTORange, EmployeePTODB
-from defaults import POINT_VALS
+from defaults import POINT_VALS, PTO_ELIGIBILITY
 from error import ErrorWindow, errorMessage
 from utils import getComboBox, widgetFromList, checkInput, toQDate, fromQDate, startfile
 from report import PDFReport
@@ -36,11 +36,15 @@ class PTOTab(QWidget):
 
         self.PTOHoursLabel = QLabel(f"PTO hours in {datetime.date.today().year}: N/A")
         self.PTOUsedLabel = QLabel(f"PTO used in {datetime.date.today().year}: N/A")
+        self.PTORemainingLabel = QLabel(f"PTO remaining in {datetime.date.today().year}: N/A")
         self.anniversary = QLabel("Anniversary: N/A")
+        topLayout0 = QHBoxLayout()
+        topLayout0.addWidget(self.currentEmployeeLabel)
+
         topLayout1 = QHBoxLayout()
-        topLayout1.addWidget(self.currentEmployeeLabel)
         topLayout1.addWidget(self.PTOHoursLabel)
         topLayout1.addWidget(self.PTOUsedLabel)
+        topLayout1.addWidget(self.PTORemainingLabel)
         topLayout1.addWidget(self.anniversary)
 
         self.PTOBaseLabel = QLabel(f"Base PTO in {datetime.date.today().year}: N/A")
@@ -55,6 +59,7 @@ class PTOTab(QWidget):
         topLayout2.addWidget(self.carryLabel)
         topLayout2.addWidget(self.carryButton)
 
+        topLayout.addLayout(topLayout0)
         topLayout.addLayout(topLayout1)
         topLayout.addLayout(topLayout2)
 
@@ -128,8 +133,9 @@ class PTOTab(QWidget):
         isEmpty = False
         if not self.currentEmployeePTO == None and not self.currentEmployee == None and self.currentEmployee.fullTime:
             today = datetime.date.today()
-            self.PTOHoursLabel.setText(f"PTO hours in {datetime.date.today().year}: {self.currentEmployeePTO.getAvailableHours(self.currentEmployee.anniversary, self.mainApp.db.attendance[self.mainTab.employeeID], today)}")
+            self.PTOHoursLabel.setText(f"PTO hours in {datetime.date.today().year}: {self.currentEmployeePTO.getAvailableHours(self.currentEmployee.anniversary, self.mainApp.db.attendance[self.mainTab.employeeID], today)}{"" if (today - self.currentEmployee.anniversary).days >= PTO_ELIGIBILITY else f" (available {(self.currentEmployee.anniversary + datetime.timedelta(days=PTO_ELIGIBILITY)).isoformat()})"}")
             self.PTOUsedLabel.setText(f"PTO used in {datetime.date.today().year}: {self.currentEmployeePTO.getUsedHours(today.year)}")
+            self.PTORemainingLabel.setText(f"PTO remaining in {datetime.date.today().year}: {self.currentEmployeePTO.getAvailableHours(self.currentEmployee.anniversary, self.mainApp.db.attendance[self.mainTab.employeeID], today) - self.currentEmployeePTO.getUsedHours(today.year)}")
             self.PTOBaseLabel.setText(f"Base PTO in {datetime.date.today().year}: {self.currentEmployeePTO.getAvailableBaseHours(self.currentEmployee.anniversary, today.year)}")
             self.PTOAttendanceLabel.setText(f"PTO attendance bonus in {datetime.date.today().year}: {self.currentEmployeePTO.getQuarterHours(self.currentEmployee.anniversary, self.mainApp.db.attendance[self.mainTab.employeeID], today)}")
             self.carryLabel.setText(f"PTO carryover from {datetime.date.today().year - 1}: {self.currentEmployeePTO.getCarryHours(today.year)}")
@@ -430,8 +436,8 @@ class PTOEditWindow(QWidget):
         if not start.year == end.year:
             errors.append(f"Range spans multiple calendar years ({start.year} to {end.year})")
         
-        if (start - self.employee.anniversary).days < 180:
-            errors.append(f"Employee {self.employeeID} is not eligible for PTO until {(self.employee.anniversary + datetime.timedelta(days=180)).isoformat()}")
+        if (start - self.employee.anniversary).days < PTO_ELIGIBILITY:
+            errors.append(f"Employee {self.employeeID} is not eligible for PTO until {(self.employee.anniversary + datetime.timedelta(days=PTO_ELIGIBILITY)).isoformat()}")
         
         hours = checkInput(self.hours.text(), float, "pos", errors, "hours")
 
