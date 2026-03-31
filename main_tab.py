@@ -45,6 +45,9 @@ class MainTab(QWidget):
         from pto_tab import PTOTab
         self.PTOTab = PTOTab(self)
         self.tab_widget.addTab(self.PTOTab, "PTO Tracker")
+        from notes_tab import NotesTab
+        self.notesTab = NotesTab(self)
+        self.tab_widget.addTab(self.notesTab, "Notes & Incidents")
 
         layout = QVBoxLayout(self)
         layout.addLayout(hlayout)
@@ -64,6 +67,7 @@ class MainTab(QWidget):
         self.trainingTab.refresh()
         self.pointsTab.refresh()
         self.PTOTab.refresh()
+        self.notesTab.refresh()
     
     def refreshPicker(self):
         db = self.mainApp.db

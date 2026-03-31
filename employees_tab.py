@@ -7,7 +7,7 @@ import os
 
 from table import DBTable
 from app import MainWindow
-from records import Employee, EmployeeReviewsDB, EmployeeTrainingDB, EmployeePointsDB, EmployeePTODB
+from records import Employee, EmployeeReviewsDB, EmployeeTrainingDB, EmployeePointsDB, EmployeePTODB, EmployeeNotesDB
 from error import ErrorWindow, errorMessage
 from utils import getComboBox, widgetFromList, checkInput, toQDate, fromQDate, startfile
 from report import PDFReport
@@ -292,6 +292,8 @@ class EmployeeEditWindow(QWidget):
                 self.mainApp.db.addEmployeePoints(points)
                 PTO = EmployeePTODB(id)
                 self.mainApp.db.addEmployeePTO(PTO)
+                notes = EmployeeNotesDB(id)
+                self.mainApp.db.addEmployeeNotes(notes)
             else:
                 assert(not isNone)
                 self.mainApp.db.updateEmployee(self.employee.idNum, id)

@@ -276,6 +276,48 @@ class PDFReport:
                 self.nextPage()
             self.pdf.save()
     
+    def employeeNotesReport(self, id):
+        if id in self.db.employees:
+            employee = self.db.employees[id]
+            notesDB = self.db.notes[id]
+            assert(not employee.lastName == None)
+
+            today = datetime.date.today()
+            headers = ["Date", "Time", "Details"]
+            widths = [1.2 * inch, 0.8 * inch, 4.5 * inch]
+            data = [[
+                "{}".format(note.date.isoformat()),
+                "{}".format(note.time),
+                "{}".format(note.details)
+            ] for note in notesDB.notes.values() if (today - note.date).days <= 365]
+            data.sort(key=lambda row: (row[0], row[1]))
+            olen = len(data)
+
+            if len(data) == 0:
+                self.setupPage()
+                self.drawTitle(f"TKG Notes & Incidents Report ({today.isoformat()})")
+                self.drawSubtitle(f"{employee.lastName.upper()} {employee.firstName} ({id})")
+                self.skipLines(2)
+
+                self.drawSection(f"Notes & Incidents (Past Year)")
+
+                self.drawTable([], ["Total Notes", f"{olen}", ""], widths)
+            while len(data) > 0:
+                self.setupPage()
+                self.drawTitle(f"TKG Notes & Incidents Report ({today.isoformat()})")
+                self.drawSubtitle(f"{employee.lastName.upper()} {employee.firstName} ({id})")
+                self.skipLines(2)
+
+                self.drawSection(f"Notes & Incidents (Past Year){" -- Continued" if not len(data) == olen else ""}")
+                drawn = self.drawTable(data, headers, widths)
+
+                if drawn == len(data):
+                    self.drawTable([], ["Total Notes", f"{olen}", ""], widths)
+
+                data = data[drawn:]
+                self.nextPage()
+            self.pdf.save()
+
     def employeeActiveReport(self):
         headers = ["ID", "Name", "Points", "Remaining PTO"]
         data = [[

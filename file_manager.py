@@ -1,7 +1,7 @@
 import sqlite3
 
 from app import MainWindow
-from records import Employee, EmployeeReviewsDB, EmployeeTrainingDB, EmployeePointsDB, EmployeePTODB, EmployeeReview, EmployeeTrainingDate, EmployeePoint, EmployeePTORange, HolidayObservance
+from records import Employee, EmployeeReviewsDB, EmployeeTrainingDB, EmployeePointsDB, EmployeePTODB, EmployeeNotesDB, EmployeeReview, EmployeeTrainingDate, EmployeePoint, EmployeePTORange, EmployeeNote, HolidayObservance
 import datetime
 # from records import Material, Mixture, Package, Part
 
@@ -13,24 +13,14 @@ class FileManager:
 
     def initFile(self):
         assert(not self.filePath == None)
+        EXPECTED_TABLES = {"globals", "employees", "reviews", "training", "attendance", "PTO", "notes", "holidays", "observances"}
         try:
             self.dbFile = sqlite3.connect(self.filePath)
             res = self.dbFile.execute("SELECT name FROM sqlite_master")
             tables = [row[0] for row in res.fetchall()]
-            print(f"Initialization: found {len(tables)} tables")
-            if len(tables) > 16:
-                print(f"Initialization error: too many tables in {self.filePath}.  Found:")
-                for tab in tables:
-                    print(f" * {tab}")
-                self.dbFile.close()
-                return False
-            elif len(tables) < 16 and len(tables) > 0:
-                print(f"Initialization error: too few tables in {self.filePath}.  Found:")
-                for tab in tables:
-                    print(f" * {tab}")
-                self.dbFile.close()
-                return False
-            
+            tableNames = set([t for t in tables if not t.startswith("sqlite_")])
+            print(f"Initialization: found {len(tables)} entries, tables: {tableNames}")
+
             if len(tables) == 0:
                 self.dbFile.execute("CREATE TABLE globals(name PRIMARY KEY, value)") # Future proofing
                 self.dbFile.execute("CREATE TABLE employees(idNum PRIMARY KEY, lastName, firstName, anniversary, role, shift, addressLine1, addressLine2, addressCity, addressState, addressZip, addressTel, addressEmail, status)")
@@ -38,15 +28,24 @@ class FileManager:
                 self.dbFile.execute("CREATE TABLE training(idNum, training, date, comment, UNIQUE(idNum, training, date))")
                 self.dbFile.execute("CREATE TABLE attendance(idNum, date, reason, value, UNIQUE(idNum, date))")
                 self.dbFile.execute("CREATE TABLE PTO(idNum, start, end, hours, UNIQUE(idNum, start, end))")
+                self.dbFile.execute("CREATE TABLE notes(idNum, date, time, details, UNIQUE(idNum, date, time))")
                 self.dbFile.execute("CREATE TABLE holidays(holiday PRIMARY KEY, month)")
                 self.dbFile.execute("CREATE TABLE observances(holiday, shift, date, UNIQUE(holiday, shift, date))")
+                self.dbFile.execute("INSERT INTO globals VALUES ('db_version', '2')")
                 self.dbFile.commit()
                 return True
-            elif len(tables) == 16 and "globals" in tables and "employees" in tables and "reviews" in tables and "training" in tables and "attendance" in tables and "PTO" in tables and "holidays" in tables and "observances" in tables:
+            elif EXPECTED_TABLES.issubset(tableNames):
+                return True
+            elif (EXPECTED_TABLES - {"notes"}).issubset(tableNames) and "notes" not in tableNames:
+                print(f"Migration: adding notes table to {self.filePath}")
+                self.dbFile.execute("CREATE TABLE notes(idNum, date, time, details, UNIQUE(idNum, date, time))")
+                self.dbFile.execute("INSERT OR REPLACE INTO globals VALUES ('db_version', '2')")
+                self.dbFile.commit()
                 return True
             else:
                 print(f"Initialization error: wrong tables in {self.filePath}")
-                print(f" * Found: {", ".join(tables)}")
+                print(f" * Expected: {", ".join(sorted(EXPECTED_TABLES))}")
+                print(f" * Found: {", ".join(sorted(tableNames))}")
                 self.dbFile.close()
                 return False
         except Exception as e:
@@ -180,6 +179,30 @@ class FileManager:
 
         #####
 
+        print(f"Saving notes to {self.filePath}")
+        for idNum in db.notes:
+            valsList = db.notes[idNum].getTuples()
+            for vals in valsList:
+                try:
+                    self.dbFile.execute("INSERT OR REPLACE INTO notes VALUES (?, ?, ?, ?)", vals)
+                    print(f" * Saving {vals}")
+                except Exception as e:
+                    print(f" * Error saving {vals}: {repr(e)}")
+        self.dbFile.commit()
+
+        res = self.dbFile.execute(f"SELECT idNum, date, time FROM notes")
+
+        deleted = [vals for vals in res.fetchall() if not vals[0] in db.notes or not (datetime.date.fromisoformat(vals[1]), vals[2]) in db.notes[vals[0]].notes]
+        if len(deleted) > 0:
+            try:
+                res.executemany(f"DELETE FROM notes WHERE (idNum, date, time)=(?, ?, ?)", deleted)
+                print(f" * Deleting old entries {", ".join([f"({vals[0]}, {vals[1]}, {vals[2]})" for vals in deleted])}")
+            except Exception as e:
+                print(f" * Error deleting old entries {", ".join([f"({vals[0]}, {vals[1]}, {vals[2]})" for vals in deleted])}: {repr(e)}")
+        self.dbFile.commit()
+
+        #####
+
         print(f"Saving holidays to {self.filePath}")
         for vals in db.holidays.getDefaultTuples():
             try:
@@ -253,6 +276,8 @@ class FileManager:
             db.addEmployeePoints(points)
             PTO = EmployeePTODB(employee.idNum)
             db.addEmployeePTO(PTO)
+            notes = EmployeeNotesDB(employee.idNum)
+            db.addEmployeeNotes(notes)
 
             print(f" * Loaded {values}")
             print(f" --> Loaded employee {employee.idNum}")
@@ -314,6 +339,20 @@ class FileManager:
 
             print(f" * Loaded {values}")
             print(f" --> Loaded point ({pto.employee}, {pto.start}, {pto.end})")
+
+        #####
+
+        print(f"Loading notes from {self.filePath}")
+        res = self.dbFile.execute("SELECT * FROM notes")
+        for values in res.fetchall():
+            note = EmployeeNote()
+            note.fromTuple(values)
+
+            assert(note.idNum in db.notes)
+            db.notes[note.idNum].notes[(note.date, note.time)] = note
+
+            print(f" * Loaded {values}")
+            print(f" --> Loaded note ({note.idNum}, {note.date}, {note.time})")
 
         #####
 

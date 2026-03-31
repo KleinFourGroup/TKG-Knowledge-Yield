@@ -194,6 +194,34 @@ class EmployeePTORange:
             self.setDate(datetime.date.fromisoformat(row[1]), datetime.date.fromisoformat(row[2]))
         self.setHours(row[3])
 
+class EmployeeNote:
+    def __init__(self, idNum: int | None = None, date: datetime.date | None = None, time: str | None = None, details: str = "") -> None:
+        self.idNum: int | None = idNum
+        self.date: datetime.date | None = date
+        self.time: str | None = time
+        self.details: str = details
+
+    def setID(self, num: int):
+        assert(not num == None)
+        assert(num >= 0)
+        self.idNum = num
+
+    def getTuple(self):
+        assert(not self.date == None)
+        assert(not self.time == None)
+        return (
+            self.idNum,
+            self.date.isoformat(),
+            self.time,
+            stringToB64(self.details)
+        )
+
+    def fromTuple(self, row: tuple[int, str, str, str]):
+        self.setID(row[0])
+        self.date = datetime.date.fromisoformat(row[1])
+        self.time = row[2]
+        self.details = stringFromB64(row[3])
+
 class EmployeePoint:
     def __init__(self, idNum: int | None = None, date: datetime.date | None = None, reason: str | None = None, value: float = 0) -> None:
         self.idNum: int | None = idNum
@@ -345,6 +373,18 @@ class EmployeePointsDB:
         for date in self.points:
             assert(self.idNum == self.points[date].idNum)
             ret.append(self.points[date].getTuple())
+        return ret
+
+class EmployeeNotesDB:
+    def __init__(self, idNum: int) -> None:
+        self.idNum: int = idNum
+        self.notes: dict[tuple[datetime.date, str], EmployeeNote] = {}
+
+    def getTuples(self):
+        ret = []
+        for key in self.notes:
+            assert(self.idNum == self.notes[key].idNum)
+            ret.append(self.notes[key].getTuple())
         return ret
 
 class EmployeePTODB:
@@ -536,12 +576,14 @@ class Database:
                  training: dict[int, EmployeeTrainingDB],
                  attendance: dict[int, EmployeePointsDB],
                  PTO: dict[int, EmployeePTODB],
+                 notes: dict[int, EmployeeNotesDB],
                  holidays: ObservancesDB) -> None:
         self.employees = employees
         self.reviews = reviews
         self.training = training
         self.attendance = attendance
         self.PTO = PTO
+        self.notes = notes
         self.holidays = holidays
     
     def addEmployee(self, employee: Employee):
@@ -559,6 +601,10 @@ class Database:
                 reviews = {newID if key == oldID else key:val for key, val in self.reviews.items()}
                 self.reviews = reviews
                 self.reviews[newID].idNum = newID
+            if oldID in self.notes:
+                notes = {newID if key == oldID else key:val for key, val in self.notes.items()}
+                self.notes = notes
+                self.notes[newID].idNum = newID
     
     def delEmployee(self, employeeID: int):
         assert(employeeID in self.employees)
@@ -571,6 +617,8 @@ class Database:
         del self.attendance[employeeID]
         assert(employeeID in self.PTO)
         del self.PTO[employeeID]
+        assert(employeeID in self.notes)
+        del self.notes[employeeID]
     
     def addEmployeeReviews(self, employeeReviews: EmployeeReviewsDB):
         assert(not employeeReviews.idNum in self.reviews)
@@ -588,5 +636,9 @@ class Database:
         assert(not employeePTO.idNum in self.PTO)
         self.PTO[employeePTO.idNum] = employeePTO
 
+    def addEmployeeNotes(self, employeeNotes: EmployeeNotesDB):
+        assert(not employeeNotes.idNum in self.notes)
+        self.notes[employeeNotes.idNum] = employeeNotes
+
 def emptyDB():
-    return Database({}, {}, {}, {}, {}, ObservancesDB())
+    return Database({}, {}, {}, {}, {}, {}, ObservancesDB())
