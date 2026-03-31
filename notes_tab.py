@@ -1,5 +1,6 @@
 import datetime
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QMessageBox, QCalendarWidget, QTextEdit, QFileDialog
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QMessageBox, QCalendarWidget, QTextEdit, QFileDialog, QTimeEdit
+from PySide6.QtCore import QTime
 import os
 
 from table import DBTable
@@ -148,10 +149,12 @@ class NotesEditWindow(QWidget):
         if not self.isNew:
             self.calendar.setSelectedDate(toQDate(self.note.date))
 
-        self.timeInput = QLineEdit()
-        self.timeInput.setPlaceholderText("HH:MM")
+        self.timeInput = QTimeEdit()
         if not self.isNew:
-            self.timeInput.setText(self.note.time)
+            assert(self.note.time is not None)
+            hours = int(self.note.time.split(":")[0])
+            minutes = int(self.note.time.split(":")[1])
+            self.timeInput.setTime(QTime(hours, minutes))
 
         self.detailsInput = QTextEdit()
         if not self.isNew:
@@ -185,7 +188,8 @@ class NotesEditWindow(QWidget):
         errors = []
 
         date = fromQDate(self.calendar.selectedDate())
-        timeStr = self.timeInput.text().strip()
+        qTime = self.timeInput.time()
+        timeStr = f"{qTime.hour()}:{qTime.minute()}"
 
         # Validate time format
         timeParts = timeStr.split(":")
