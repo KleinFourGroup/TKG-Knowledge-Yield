@@ -64,6 +64,25 @@ class PDFReport:
         self.drawText(text)
         self.setFont(*oldFont)
     
+    def drawParagraph(self, text: str):
+        maxWidth = self.right - self.left
+        for paragraph in text.split("\n"):
+            lines = self._wrapText(paragraph, maxWidth)
+            for line in lines:
+                if self.lastLine - self.fontSize < self.bottom:
+                    self.nextPage()
+                self.drawText(line)
+
+    def drawSignatureLine(self, label: str):
+        if self.lastLine - self.fontSize * self.lineSpace * 3 < self.bottom:
+            self.nextPage()
+        self.skipLines(2)
+        labelWidth = stringWidth(label + "  ", self.font, self.fontSize)
+        y = self.lastLine - self.fontSize
+        self.pdf.drawString(self.left, y, label)
+        self.pdf.line(self.left + labelWidth, y, self.right, y)
+        self.skipLines(1)
+
     def _wrapText(self, text: str, maxWidth: float, font: str | None = None, fontSize: int | None = None) -> list[str]:
         font = font or self.font
         fontSize = fontSize or self.fontSize
@@ -295,7 +314,7 @@ class PDFReport:
 
             if len(data) == 0:
                 self.setupPage()
-                self.drawTitle(f"TKG Notes & Incidents Report ({today.isoformat()})")
+                self.drawTitle(f"TKG Notes and Incidents Report ({today.isoformat()})")
                 self.drawSubtitle(f"{employee.lastName.upper()} {employee.firstName} ({id})")
                 self.skipLines(2)
 
@@ -304,11 +323,11 @@ class PDFReport:
                 self.drawTable([], ["Total Notes", f"{olen}", ""], widths)
             while len(data) > 0:
                 self.setupPage()
-                self.drawTitle(f"TKG Notes & Incidents Report ({today.isoformat()})")
+                self.drawTitle(f"TKG Notes and Incidents Report ({today.isoformat()})")
                 self.drawSubtitle(f"{employee.lastName.upper()} {employee.firstName} ({id})")
                 self.skipLines(2)
 
-                self.drawSection(f"Notes & Incidents (Past Year){" -- Continued" if not len(data) == olen else ""}")
+                self.drawSection(f"Notes and Incidents (Past Year){" -- Continued" if not len(data) == olen else ""}")
                 drawn = self.drawTable(data, headers, widths)
 
                 if drawn == len(data):
@@ -316,6 +335,30 @@ class PDFReport:
 
                 data = data[drawn:]
                 self.nextPage()
+            self.pdf.save()
+
+    def employeeIncidentReport(self, id, date, time):
+        if id in self.db.employees:
+            employee = self.db.employees[id]
+            note = self.db.notes[id].notes[(date, time)]
+            assert(not employee.lastName == None)
+
+            self.setupPage()
+            self.drawTitle(f"TKG Incident Report")
+            self.drawSubtitle(f"{employee.lastName.upper()} {employee.firstName} ({id})")
+            self.skipLines(1)
+
+            self.drawSection("Incident Details")
+            self.drawText(f"Date: {note.date.isoformat()}")
+            self.drawText(f"Time: {note.time}")
+            self.skipLines(1)
+
+            self.drawParagraph(note.details)
+            self.skipLines(2)
+
+            self.drawSignatureLine("Employee Signature:")
+            self.drawSignatureLine("Date:")
+
             self.pdf.save()
 
     def employeeActiveReport(self):

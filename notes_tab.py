@@ -38,14 +38,17 @@ class NotesTab(QWidget):
         self.editB.clicked.connect(self.openEdits)
         self.deleteB = QPushButton("Delete Note")
         self.deleteB.clicked.connect(self.deleteNotes)
-        self.reportB = QPushButton("Generate Report")
+        self.reportB = QPushButton("Generate Summary Report")
         self.reportB.clicked.connect(self.report)
+        self.incidentReportB = QPushButton("Generate Incident Report")
+        self.incidentReportB.clicked.connect(self.incidentReport)
 
         barLayout = QHBoxLayout()
         barLayout.addWidget(self.newB)
         barLayout.addWidget(self.editB)
         barLayout.addWidget(self.deleteB)
         barLayout.addWidget(self.reportB)
+        barLayout.addWidget(self.incidentReportB)
 
         layout = QVBoxLayout()
         layout.addLayout(topLayout)
@@ -84,6 +87,7 @@ class NotesTab(QWidget):
         self.editB.setEnabled(not self.currentEmployee == None)
         self.deleteB.setEnabled(not self.currentEmployee == None)
         self.reportB.setEnabled(not self.currentEmployee == None)
+        self.incidentReportB.setEnabled(not self.currentEmployee == None)
 
     def refreshNotes(self):
         self.genTableData()
@@ -123,6 +127,22 @@ class NotesTab(QWidget):
                 pdf = PDFReport(self.mainApp.db, reportFile[0])
                 pdf.employeeNotesReport(self.currentEmployee.idNum)
                 startfile(reportFile[0])
+
+    def incidentReport(self):
+        if self.currentEmployeeNotes == None:
+            errorMessage(self.mainApp, ["No employee selected."])
+        elif len(self.selection) == 0:
+            errorMessage(self.mainApp, ["No note selected."])
+        elif len(self.selection) > 1:
+            errorMessage(self.mainApp, ["Please select only one note for an incident report."])
+        else:
+            key = self.selection[0]
+            if key in self.currentEmployeeNotes.notes:
+                reportFile = QFileDialog.getSaveFileName(self, f"Save {self.currentEmployee.idNum} Incident Report As", os.path.expanduser("~"), "Portable Document Format (*.pdf)")
+                if not reportFile[0] == "":
+                    pdf = PDFReport(self.mainApp.db, reportFile[0])
+                    pdf.employeeIncidentReport(self.currentEmployee.idNum, key[0], key[1])
+                    startfile(reportFile[0])
 
     def refresh(self):
         self.setEmployee(self.mainTab.employeeID)

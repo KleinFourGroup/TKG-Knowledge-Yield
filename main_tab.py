@@ -47,7 +47,7 @@ class MainTab(QWidget):
         self.tab_widget.addTab(self.PTOTab, "PTO Tracker")
         from notes_tab import NotesTab
         self.notesTab = NotesTab(self)
-        self.tab_widget.addTab(self.notesTab, "Notes & Incidents")
+        self.tab_widget.addTab(self.notesTab, "Notes and Incidents")
 
         layout = QVBoxLayout(self)
         layout.addLayout(hlayout)

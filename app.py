@@ -4,7 +4,7 @@ from utils import newHLine
 
 import os
 
-VERSION = "3.0"
+VERSION = "3.1"
 
 def createTab():
     tab = QWidget()
